@@ -1,0 +1,19 @@
+name: ggcm-feature-importance
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - tqdm
+  - matplotlib
+  - xarray
+  - scikit-learn
+  - pytables
+  - xgboost
+  - seaborn
+  - shap
+  - rioxarray
+  - statsmodels
+  - pillow
