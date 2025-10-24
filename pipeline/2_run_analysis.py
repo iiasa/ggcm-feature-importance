@@ -9,7 +9,7 @@ import pandas as pd
 import pickle
 import argparse
 
-from sens_common import set_default, set_extreme
+from config import set_default, set_extreme
 from attribution import Analysis
 
 
