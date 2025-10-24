@@ -2,6 +2,8 @@
 
 This repository provides the pipeline code for reproducing the comparative feature attribution study presented in the reference paper below.
 
+![Importance scores overview](assets/scores.svg)
+
 ## Pipeline
 
 The pipeline processes climate and yield data of GGCMs, and combines it with auxiliary data from different sources (soil, site, Köppen-Geiger, harvested area, etc.).
