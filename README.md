@@ -92,6 +92,26 @@ data = analysis.load_data(
 
 Results for the selected models are stored in /data/output/results.p for further analysis and visualization.
 
+### [3a] Importance score plots
+
+```python
+python pipeline\3a_plot_importance.py 
+--results C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\results.p 
+--out C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\importance.svg 
+--crop corn 
+--irr rf
+```
+
+### [3b] Clustering and dendrograms
+
+```python
+python pipeline\3b_cluster.py 
+--results C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\results.p 
+--out C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output 
+--crop corn 
+--irr rf
+```
+
 ## Reference Paper
 
 Oberleitner, T., Folberth, C., et al., 2025. Explaining climatic drivers of yield anomalies in global crop models through metamodel-based attribution. Authorea Preprints. DOI: 10.22541/essoar.176071967.73925210/v1
