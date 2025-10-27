@@ -30,7 +30,7 @@ A description of the proposed folder structure and auxiliary input data can be f
 The first step converts binary[^1] climate data files into aggregated features used for attribution. `pdayfile` and `mdayfile` can be passed as paths to planting and maturity day NetCDFs. When omitted, the pipeline uses a biophysical growth model to estimate the growing season length.
 
 ```console
-python pipeline\1a_process_climate.py 
+python pipeline/1a_process_climate.py 
 --mdayfile /data/input/epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_matyday-mai-firr_global_annual_1901_2016.nc 
 --pdayfile /data/input/epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_plantday-mai-firr_global_annual_1901_2016.nc 
 --climdir /data/input/climate 
@@ -51,7 +51,7 @@ python pipeline\1a_process_climate.py
 This step reads end-of-season yields per year, applies LOESS detrending and calculates relative yields.
 
 ```console
-python pipeline\1b_process_yield.py 
+python pipeline/1b_process_yield.py 
 --yieldfile /data/input/yield/ epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_yield-mai-noirr_global_annual_1901_2016.nc
 --mdayfile /data/input/epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_matyday-mai-firr_global_annual_1901_2016.nc 
 --pdayfile /data/input/epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_plantday-mai-firr_global_annual_1901_2016.nc 
@@ -66,7 +66,7 @@ python pipeline\1b_process_yield.py
 The comparative feature attribution is performed in this step.
 
 ```console
-python pipeline\2_run_analysis.py 
+python pipeline/2_run_analysis.py 
 --datadir /data/generated 
 --inputdir /data/input 
 --out /data/output 
@@ -94,9 +94,9 @@ Results for the selected models are stored in /data/output/results.p for further
 ### [3a] Importance score plots
 
 ```python
-python pipeline\3a_plot_importance.py 
---results C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\results.p 
---out C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\importance.svg 
+python pipeline/3a_plot_importance.py 
+--results /data/output/results.p 
+--out /data/output/importance.svg 
 --crop corn 
 --irr rf
 ```
@@ -104,9 +104,9 @@ python pipeline\3a_plot_importance.py
 ### [3b] Clustering and dendrograms
 
 ```python
-python pipeline\3b_cluster.py 
---results C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\results.p 
---out C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output 
+python pipeline/3b_cluster.py 
+--results /data/output/results.p 
+--out /data/output 
 --crop corn 
 --irr rf
 ```
