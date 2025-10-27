@@ -93,7 +93,7 @@ Results for the selected models are stored in /data/output/results.p for further
 
 ### [3a] Importance score plots
 
-```python
+```console
 python pipeline/3a_plot_importance.py 
 --results /data/output/results.p 
 --out /data/output/importance.svg 
@@ -103,7 +103,7 @@ python pipeline/3a_plot_importance.py
 
 ### [3b] Clustering and dendrograms
 
-```python
+```console
 python pipeline/3b_cluster.py 
 --results /data/output/results.p 
 --out /data/output 
