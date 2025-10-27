@@ -11,14 +11,13 @@ The pipeline processes climate and yield data of GGCMs, and combines it with aux
 ```mermaid
 flowchart TD;
     subgraph Processing;
-    1[1a_process_climate.py]-->3[2_run_analysis.py];
-    2[1b_process_yields.py]-->3;
+    1a[1a_process_climate.py]-->2[2_run_analysis.py];
+    1b[1b_process_yields.py]-->2;
     end;
     subgraph Visualization;
-    3-->3a[results.p]
-    4a[4a_plot_importance.py]-->3a;
-    4b[4c_plot_cluster.py]-->3a;
-    4c[4c_plot_cluster.py]-->3a;
+    2-->2a[results.p]
+    3a[3a_plot_importance.py]-->2a;
+    3b[3b_cluster.py]-->2a;
     end;
 ```
 
