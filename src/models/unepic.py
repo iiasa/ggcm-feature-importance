@@ -2,10 +2,11 @@
 Collection of biophysical functions, aligned to the EPIC crop model v.1102.
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 from dataclasses import dataclass
+import warnings
 
 @dataclass
 class Crop:
@@ -272,3 +273,61 @@ def sfun(x, b1, b2):
     Returns normalized (0-1) value on the S-curve.
     """
     return x / (x + np.exp(b1 - b2 * x))
+
+_gs_segments = {
+    'GSv': (0, 0.5),
+    'GSr': (0.5, 1),
+    'GSe': (0, 0.25),
+    'GSd': (0.25, 0.5),
+    'GSf': (0.5, 0.75),
+    'GSg': (0.75, 1),
+}
+
+def compute_season(tmin: np.ndarray, tmax: np.ndarray, pd_idx: int, hd_idx: int, tbsc: float, gmhu: float, phu: float, dynamic: bool = True) -> dict:
+    """
+    :param tmin: Array of daily min. temperatures for a calendar year
+    :param tmax: Array of dialy max. temperatures for a calendar year
+    :param pd_idx: Planting date day index
+    :param hd_idx: Harvest date day index
+    :param tbsc: Base temperature for GDD calculation
+    :param gmhu: Heat units required for germination
+    :param phu: Heat units required for maturity
+    """
+
+    gdd = np.maximum((tmax[pd_idx:] + tmin[pd_idx:]) / 2 - tbsc, 0.)
+
+    # Find germination day
+    germ_ridx = np.where(np.nancumsum(gdd) >= gmhu)[0]
+    if len(germ_ridx) == 0:
+        return None, None, None
+    germ_ridx = germ_ridx[0] + 1  # idx relative to pd
+
+    # HUI accumulation starts at germination
+    hui = np.hstack([np.zeros(germ_ridx), np.cumsum(gdd[germ_ridx:]) / phu])
+
+    # Calculate maturity/harvest date
+    if dynamic:
+        hd_ridx = np.where(hui >= 1.)[0]
+        if len(hd_ridx) == 0:
+            hd_ridx = hd_idx - pd_idx + 21  # In cases where maturity is nevery reached, use provided HD + 21 as fallback
+            # todo: mind end of year
+        else:
+            hd_ridx = hd_ridx[0]
+        hd_idx = pd_idx + hd_ridx  # Overwrite provided with calculated HD
+
+    else:
+        hd_ridx = hd_idx - pd_idx
+
+    periods = {
+        'GS': slice(pd_idx, hd_idx), # total
+        'GSp': slice(pd_idx - 30, pd_idx - 1), # pre
+    }
+
+    for name, i in _gs_segments.items():
+        i0 = np.where(hui >= i[0])[0]
+        i1 = np.where(hui >= i[1])[0]
+        if len(i0) == 0 or len(i1) == 0 or i0[0] > hd_ridx or i1[0] > hd_ridx:
+            continue
+        periods[name] = slice(pd_idx + i0[0], pd_idx + i1[0] - 1)
+
+    return periods, np.hstack([np.zeros(pd_idx), hui[:hd_ridx]]), np.hstack([np.zeros(pd_idx), gdd[:hd_ridx]])
