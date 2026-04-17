@@ -131,14 +131,11 @@ def process_year(
     # data[data[:, 5] == 0] = np.nan
     
     # Convert units
-    data[:, 0] = data[:, 0] / 100  # % -> ratio
-    data[:, 1] = data[:, 1] * 24 * 60 * 60  # kg/m²/s -> mm/day; 1 kg of rain water spread over 1 square meter of surface is 1 mm in thickness
-    data[:, 2] = data[:, 2] * 60 * 60 * 24 / 1e6  # W/m² -> MJ/m²/day
-    data[:, 4] = data[:, 4] - 273.15  # K -> °C
-    data[:, 5] = data[:, 5] - 273.15  # K -> °C
-
-    # if year == 1992:
-    #     de = 'asd'
+    data[:, VarIdx.HURS] = data[:, VarIdx.HURS] / 100  # % -> ratio
+    data[:, VarIdx.PRCP] = data[:, VarIdx.PRCP] * 24 * 60 * 60  # kg/m²/s -> mm/day; 1 kg of rain water spread over 1 square meter of surface is 1 mm in thickness
+    data[:, VarIdx.RSDS] = data[:, VarIdx.RSDS] * 60 * 60 * 24 / 1e6  # W/m² -> MJ/m²/day
+    data[:, VarIdx.TMAX] = data[:, VarIdx.TMAX] - 273.15  # K -> °C
+    data[:, VarIdx.TMIN] = data[:, VarIdx.TMIN] - 273.15  # K -> °C
 
     season, hui, gdd = unepic.compute_season(data[:, VarIdx.TMIN], data[:, VarIdx.TMAX], pd, hd, corn.tbsc, corn.gmhu, phu)
     if season is None:
@@ -190,6 +187,15 @@ def process_year(
             'LEN': plen,
             'HUIeop': hui[idx][-1]
         }
+
+        cmd = pet - d[:, VarIdx.PRCP]
+        wd = d[:, VarIdx.PRCP] > 1.0  # pr > 1mm (McErlich)
+        dd = d[:, VarIdx.PRCP] <= 1.0
+
+        wet_sum_gs = np.nansum(wd)
+        dry_sum_gs = np.nansum(dd)
+        cwd_sum_gs = np.max(count_consecutive(wd)) if wet_sum_gs > 0 else 0
+        cdd_sum_gs = np.max(count_consecutive(dd)) if dry_sum_gs > 0 else 0
 
         fracs = {
             'HDD': np.nansum(d[:, VarIdx.TMAX] >= 30),  # Schauberger et al. 2017
@@ -276,6 +282,7 @@ land_pxls = set(climate.land_pixels())
 if calendar_mode:
     gs_pxls = set(zip(ds_gs.index.get_level_values('lat'), ds_gs.index.get_level_values('lon')))
     land_pxls = land_pxls & gs_pxls
+land_pxls = sorted(land_pxls)
 
 # land_pxls = [(48.25, 16.75)]  # Marchfeld
 # land_pxls = [(-55.25, -68.25)]

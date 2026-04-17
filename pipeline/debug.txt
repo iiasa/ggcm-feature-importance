@@ -1,0 +1,54 @@
+1a_process_climate.py
+
+paths = {
+    'mdayfile': r'P:\esmscratch\ggcmi_sync\p\projects\macmit\data\GGCMI\AgMIP.output\EPIC-IIASA\phase3a\gswp3-w5e5\obsclim\mai\epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_matyday-mai-firr_global_annual_1901_2016.nc', 
+    'pdayfile': r'P:\esmscratch\ggcmi_sync\p\projects\macmit\data\GGCMI\AgMIP.output\EPIC-IIASA\phase3a\gswp3-w5e5\obsclim\mai\epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_plantday-mai-firr_global_annual_1901_2016.nc',
+    'climdir': r'C:\Users\oberleitner\projects\anfos\anfos_repo\data\input\climate',
+    'locfile': r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\input\CLIMATE_LAT_PD_HD_PHU_ELEV_PRMT74_mai_noirr_fH_v3c.csv',
+    'co2file': r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\input\co2_historical_annual_1765_2014.txt',
+    'out': r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\generated\climate_EPIC-IIASA_maize_rf.h5',
+}
+for p in paths:
+    paths[p] = Path(paths[p])
+year_from = 1971
+year_to = 2015
+shift = 0
+clim_year_from = 1901
+clim_year_to = 2016
+
+
+1b_process_yield.py
+
+# path_yield = Path(r'P:\esmscratch\ggcmi_sync\p\projects\macmit\data\GGCMI\AgMIP.output\EPIC-IIASA\phase3a\gswp3-w5e5\obsclim\mai\epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_yield-mai-noirr_global_annual_1901_2016.nc')
+# path_out = Path(r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\yield_EPIC-IIASA_maize_rf.h5')
+# year_from = 1971
+# year_to = 2015
+# shift = 1
+# path_mdayfile = Path(r'P:\esmscratch\ggcmi_sync\p\projects\macmit\data\GGCMI\AgMIP.output\EPIC-IIASA\phase3a\gswp3-w5e5\obsclim\mai\epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_matyday-mai-firr_global_annual_1901_2016.nc')
+# path_pdayfile = Path(r'P:\esmscratch\ggcmi_sync\p\projects\macmit\data\GGCMI\AgMIP.output\EPIC-IIASA\phase3a\gswp3-w5e5\obsclim\mai\epic-iiasa_gswp3-w5e5_obsclim_2015soc_default_plantday-mai-firr_global_annual_1901_2016.nc')
+
+1c_process_yield_gdhy.py
+
+
+# path_dir = Path(r'P:\esmscratch\ANFOS_Main\ModelSensitivity\Reported_Yields\Iizumi_2019\maize')
+# path_out = Path(r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\gdhy_maize.h5')
+# year_from = 1981
+# year_to = 2016
+
+
+2_run_analysis.py
+
+data_dir = Path(r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\generated')
+input_dir = Path(r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\input')
+out_dir = Path(r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output')
+crop = 'maize'
+irr = 'rf'
+feature_set = 'default'
+models = ['EPIC-IIASA']
+
+3b_cluster.py
+
+results_path = Path(r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output\results.p')
+out_path = Path(r'C:\Users\oberleitner\projects\anfos\ggcm-feature-importance\data\output')
+crop = 'corn'
+irr = 'rf'

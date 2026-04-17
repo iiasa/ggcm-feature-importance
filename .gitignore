@@ -249,3 +249,4 @@ data/**
 !data/generated/README.md
 !data/input/README.md
 !data/output/README.md
+.vscode
