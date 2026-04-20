@@ -3,6 +3,7 @@ Module for processing climate data as provided by Frieler et al., 2024. TODO: re
 """
 
 import sys
+from typing import Literal
 import warnings
 import numpy as np
 import pandas
@@ -151,11 +152,17 @@ if calendar_mode:
     land_pxls = land_pxls & gs_pxls
 land_pxls = sorted(land_pxls)
 
+
+
 # land_pxls = [(48.25, 16.75)]  # Marchfeld
 # land_pxls = [(-55.25, -68.25)]
 
+hd_mode: Literal["strict", "semi_dynamic", "dynamic"] = "strict"
+hui_thresh: float = 1
+
 n_pixels = 100
-pixels = list(sorted(land_pxls))[:n_pixels]
+pixels = land_pxls[:n_pixels]
+
 seq_years = np.arange(year_from, year_to + 1)
 px_locdat = (
     loc_data.loc[pixels]
@@ -206,40 +213,31 @@ df1 = pl.DataFrame(px_locdat[['PD', 'HD', 'PHU', 'ELEV', 'PRMT74', 'LAT']]).with
 
 df = df.join(df1, on='pixel').join(px_co2dat, on='year')
 
+df = df.with_columns(
+    pl.all().fill_nan(None)
+)
 
 df = df.sort(["pixel", "year", "day"])
 
-# df_gs = df.with_columns(
-#     season_start=(pl.col("day") == pl.col("PLDOY")).cast(pl.Int32),
-#     in_gs=pl.when(pl.col("PLDOY") <= pl.col("HRDOY"))
-#     .then(
-#         pl.col("day").is_between(pl.col("PLDOY"), pl.col("HRDOY"), closed="both")
-#     )
-#     .otherwise(
-#         (pl.col("day") >= pl.col("PLDOY")) | (pl.col("day") <= pl.col("HRDOY"))
-#     ),
-# ).with_columns(
-#     gs_id_raw=pl.col("season_start").cum_sum().over("pixel"),
-# ).with_columns(
-#     GS=pl.when(pl.col("in_gs"))
-#     .then(pl.col("gs_id_raw"))
-#     .otherwise(0)
-#     .cast(pl.Int32)
-# ).drop(["season_start", "in_gs", "gs_id_raw"])
 
 
-compute_hd = True
+# df = df.filter(pl.col("pixel") == 50)
 
-df = df.filter(pl.col("pixel") == 30)
-
-df = init_gs(df)
+df = init_gs(df, "calendar" if hd_mode == "strict" else "pd_only")
 df = add_gdd(df, corn.tbsc)
 df = add_hui(df, corn.gmhu)
-if compute_hd:
-    df = add_hd(df)
-df = clip_gs(df)
+
+if hd_mode != "strict":
+    # Overwrite HD with calculated HD
+    df = add_hd(df, mode=hd_mode)
+    df = clip_gs(df)
+
+# Remove days outside GS, as they play no further part in aggregation.
+df = df.filter(pl.col("GS") > 0)
+
 df = add_lai_chd(df, corn.dlap1, corn.dlap2, corn.hmx, corn.dlai, corn.dmla, corn.rlad)
 df = add_pet(df, corn.vpth, corn.gsi, corn.vpd2)
+
 # Tier 1 subseasons: vegetative and reproductive
 df = add_subgs(
     df, 
@@ -262,82 +260,69 @@ df = add_subgs(
 )
 
 df = df.with_columns(CMD = pl.col("PET") - pl.col("pr"))
-
 df = add_streak_ids(df)
 
+aggregates = [
+    pl.col("tasmax").mean().alias("TMXav"),
+    pl.col("tasmin").mean().alias("TMNav"),
+    pl.col("tav").mean().alias("TAVav"),
 
-def aggregates():
-    return [
-        pl.col("tasmax").mean().alias("TMXav"),
-        pl.col("tasmin").mean().alias("TMNav"),
-        pl.col("tav").mean().alias("TAVav"),
+    pl.col("pr").sum().alias("PRCPsum"),
+    pl.col("rsds").sum().alias("RADsum"),
 
-        pl.col("pr").sum().alias("PRCPsum"),
-        pl.col("rsds").sum().alias("RADsum"),
+    pl.col("sfcwind").mean().alias("WSDav"),
+    pl.col("hurs").mean().alias("HURav"),
 
-        pl.col("sfcwind").mean().alias("WSDav"),
-        pl.col("hurs").mean().alias("HURav"),
+    pl.col("PET").sum().alias("PETsum"),
+    pl.col("GDD").sum().alias("GDDsum"),
+    pl.col("CMD").sum().alias("CMDsum"),
 
-        pl.col("PET").sum().alias("PETsum"),
-        pl.col("GDD").sum().alias("GDDsum"),
-        pl.col("CMD").sum().alias("CMDsum"),
+    pl.len().alias("LEN"),
+    pl.col("HUI").last().alias("HUIeop"),
+]
 
-        pl.len().alias("LEN"),
-        pl.col("HUI").last().alias("HUIeop"),
-    ]
+counts = [
+    # temperature extremes
+    (pl.col("tasmax") >= 30).sum().alias("HDD"),
+    (pl.col("tasmax") >= 39).sum().alias("KDD"),
+    (pl.col("tasmin") <= 0).sum().alias("FRT"),
+    (pl.col("tasmax") <= 0).sum().alias("ICE"),
 
-def counts():
-    return [
-        # temperature extremes
-        (pl.col("tasmax") >= 30).sum().alias("HDD"),
-        (pl.col("tasmax") >= 39).sum().alias("KDD"),
-        (pl.col("tasmin") <= 0).sum().alias("FRT"),
-        (pl.col("tasmax") <= 0).sum().alias("ICE"),
+    # precipitation thresholds
+    (pl.col("pr") >= 10.0).sum().alias("R10"),
+    (pl.col("pr") >= 20.0).sum().alias("R20"),
 
-        # precipitation thresholds
-        (pl.col("pr") >= 10.0).sum().alias("R10"),
-        (pl.col("pr") >= 20.0).sum().alias("R20"),
+    # wet / dry days
+    (pl.col("pr") > 1.0).sum().alias("WET"),
+    (pl.col("pr") <= 1.0).sum().alias("DRY"),
 
-        # wet / dry days
-        (pl.col("pr") > 1.0).sum().alias("WET"),
-        (pl.col("pr") <= 1.0).sum().alias("DRY"),
-
-        # CMD < 0
-        ((pl.col("CMD")) < 0).sum().alias("CMDlt0"),
-    ]
+    # CMD < 0
+    ((pl.col("CMD")) < 0).sum().alias("CMDlt0"),
+]
 
 final = []
 for lvl, agg in enumerate([["pixel", "GS"], ["pixel", "GS", "GSsub1"], ["pixel", "GS", "GSsub2"]]):
-    df_agg = df.group_by(agg).agg(aggregates())
+
     cwd = longest_streak(df, agg, "wd", "wd_grp", "CWD")
     cdd = longest_streak(df, agg, "dd", "dd_grp", "CDD")
     df_agg = (
-        df_agg
+        df.group_by(agg).agg(
+            *aggregates, 
+            *counts,         
+        )
         .join(cwd, on=agg, how="left")
         .join(cdd, on=agg, how="left")
     )
     if lvl == 0:
-        df_agg = df_agg.with_columns(PERIOD = pl.lit('GS')).drop('GS')
+        df_agg = df_agg.with_columns(PERIOD = pl.lit('GS').cast(pl.Categorical))
     elif lvl == 1:
-        df_agg = df_agg.with_columns(PERIOD = pl.col("GSsub1")).drop(['GS', 'GSsub1'])
+        df_agg = df_agg.with_columns(PERIOD = pl.col("GSsub1")).drop(['GSsub1'])
     elif lvl == 2:
-        df_agg = df_agg.with_columns(PERIOD = pl.col("GSsub2")).drop(['GS', 'GSsub2'])
+        df_agg = df_agg.with_columns(PERIOD = pl.col("GSsub2")).drop(['GSsub2'])
     final.append(df_agg)
 
+df_agg = pl.concat(final, how="vertical").sort(["pixel", "GS", "PERIOD"])
 
-    
-
-# continue: consecutive?
-df_agg1 = df.group_by(["pixel", "GS"]).agg(aggregates())
-cwd = longest_streak(df, ["pixel", "GS"], "wd", "wd_grp", "CWD")
-
-
-df_agg1.join(cwd, on=["pixel", "GS"], how="left")
-
-
-df_agg2 = df.group_by(["pixel", "GS", "GSsub1"]).agg(aggregates())
-df_agg3 = df.group_by(["pixel", "GS", "GSsub2"]).agg(aggregates())
-
-
-asd = 'asd'
+# Remove post-GS and otherwise uncaught periods
+df_agg = df_agg.filter(~pl.col("PERIOD").is_null())
 

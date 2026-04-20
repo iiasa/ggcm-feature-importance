@@ -1,28 +1,55 @@
+from typing import Literal
 import numpy as np
 import polars as pl
 
 
-def init_gs(df: pl.DataFrame) -> pl.DataFrame:
+def init_gs(df: pl.DataFrame, mode: Literal["calendar", "pd_only"] = "calendar") -> pl.DataFrame:
     """
+    Initializes the growing season (GS) column in the dataframe. 
     The first step a GS is defined as the period from PD to next PD. 
     This works whether the HD is defined by a crop calendar or not. 
     Needs PD column (planting date)
+
+    :param: 
     """
-    return (
-        df.with_columns(
+    if mode == "calendar":
+        return df.with_columns(
             season_start=(pl.col("day") == pl.col("PD")).cast(pl.Int32),
-        )
-        .with_columns(
-            GS = pl.col("season_start").cum_sum().over("pixel").cast(pl.Int32),
-        )
-        .with_columns(
-            GS = pl.when(pl.col("GS") > 0)
-            .then(pl.col("GS"))
+            in_gs=pl.when(pl.col("PD") <= pl.col("HD"))
+            .then(
+                pl.col("day").is_between(pl.col("PD"), pl.col("HD"), closed="both")
+            )
+            .otherwise(
+                (pl.col("day") >= pl.col("PD")) | (pl.col("day") <= pl.col("HD"))
+            ),
+        ).with_columns(
+            gs_id_raw=pl.col("season_start").cum_sum().over("pixel"),
+        ).with_columns(
+            GS=pl.when(pl.col("in_gs"))
+            .then(pl.col("gs_id_raw"))
             .otherwise(0)
             .cast(pl.Int32)
+        ).drop(["season_start", "in_gs", "gs_id_raw"])
+    
+    elif mode == "pd_only":
+        return (
+            df.with_columns(
+                season_start=(pl.col("day") == pl.col("PD")).cast(pl.Int32),
+            )
+            .with_columns(
+                GS = pl.col("season_start").cum_sum().over("pixel").cast(pl.Int32),
+            )
+            .with_columns(
+                GS = pl.when(pl.col("GS") > 0)
+                .then(pl.col("GS"))
+                .otherwise(0)
+                .cast(pl.Int32)
+            )
+            .drop("season_start")
         )
-        .drop("season_start")
-    )
+    
+    else:
+        raise ValueError("Invalid value for 'mode'.")
 
 def add_gdd(df: pl.DataFrame, tbsc: float) -> pl.DataFrame:
     return (
@@ -67,19 +94,43 @@ def add_hui(df: pl.DataFrame, gmhu: float) -> pl.DataFrame:
         
     )
 
-def add_hd(df: pl.DataFrame) -> pl.DataFrame:
+def add_hd(df: pl.DataFrame, mode: Literal["semi_dynamic", "dynamic"] = "semi_dynamic") -> pl.DataFrame:
+    """Calculates HD column in case it is not provided from crop calendar.
+
+    :param df: Target Polars df
+    :param mode: 
+        "dynamic" to calculate HD based on HD >= 1; "semi_dynamic" is same as "dynamic", but caps the  
+        calculated HD at calendar HD + 21 days. Defaults to "semi_dynamic".
     """
-    Calculates HD column in case it is not provided from crop calendar.
-    """
-    return df.with_columns(
-        HD = (
-            pl.when(pl.col("HUI") >= 1)
-            .then(pl.col("day"))
-            .otherwise(None)
-            .min()
-            .over(["pixel", "GS"])
+    if mode == "semi_dynamic":
+        return df.with_columns(
+            HD = pl.coalesce([
+                pl.when(
+                    (pl.col("HUI") >= 1) &
+                    (pl.col("day") <= pl.col("HD").first().over(["pixel","GS"]) + 21)
+                )
+                .then(pl.col("day"))
+                .otherwise(None)
+                .min()
+                .over(["pixel","GS"]),
+                pl.col("HD").first().over(["pixel","GS"]) + 21
+            ])
         )
-    )
+
+    elif mode =="dynamic":
+        return df.with_columns(
+            HD = (
+                pl.when(pl.col("HUI") >= 1)
+                .then(pl.col("day"))
+                .otherwise(None)
+                .min()
+                .over(["pixel", "GS"])
+            )
+        )
+    
+    else:
+        raise ValueError("Invalid value for 'mode'")
+    
 
 def add_lai_chd(df: pl.DataFrame, dlap1: float, dlap2: float, hmx: float, dlai: float, dmla: float, rlad: float = 1.0) -> pl.DataFrame:
     return (
@@ -243,12 +294,17 @@ def clip_gs(df: pl.DataFrame) -> pl.DataFrame:
     Sets the GS column to zero after the harvest day.
     """
     return df.with_columns(
-        GS = pl.when(
-            (pl.col("GS") > 0) & (pl.col("day") <= pl.col("HD"))
-        )
-        .then(pl.col("GS"))
-        .otherwise(0)
-    )
+        in_gs = pl.when(pl.col("PD") <= pl.col("HD"))
+            .then(
+                pl.col("day").is_between(pl.col("PD"), pl.col("HD"), closed="both")
+            )
+            .otherwise(
+                (pl.col("day") >= pl.col("PD")) | (pl.col("day") <= pl.col("HD"))
+            )
+        ).with_columns(
+            GS = pl.when(pl.col("in_gs")).then(pl.col("GS")).otherwise(0)
+        ).drop("in_gs")
+
 
 def add_streak_ids(df: pl.DataFrame) -> pl.DataFrame:
 
