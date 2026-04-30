@@ -131,6 +131,9 @@ class Analysis:
             results[kg]['stats']['n_train'] = n_train
             print(f"Recall: {results[kg]['stats']['recall']:.2f}, Precision: {results[kg]['stats']['precision']:.2f}, AUROC: {results[kg]['stats']['auroc']:.2f}, Briar: {results[kg]['stats']['briar']:.2f}")
 
+            results[kg]['model'] = model
+            results[kg]['data_train'] = data_train
+
             if calc_shap:
                 print('Calculating SHAP values... ', end='')
                 start_time = time.time()
